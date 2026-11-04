@@ -1,0 +1,1494 @@
+{
+  "info": {
+    "_postman_id": "d5c4a616-11a4-4a9e-a3b3-7d8f6c16f001",
+    "name": "RTech Backend API",
+    "description": "Postman collection for the RTech Backend Code Challenge.\n\nPrerequisites:\n1. Start the API using `dotnet run --launch-profile http` from RTech.Api.\n2. Confirm SQL Server is running and the DDL + seed scripts have been executed.\n3. Use `baseUrl` matching the actual listening URL (default http://localhost:5204).\n\nRun order:\n- Run folders 00 through 04 in order.\n- Folder 01 creates a unique user and ship and stores their IDs.\n- Folder 02 uses those generated IDs.\n- Crew and financial tests use seeded SHIP01 and SHIP02.\n\nNote: The create requests write test records to your database. A new uniquely named\nuser and ship are created each time you run the collection. The other requests are read-only.\nThe duplicate-create, invalid-input, and inactive/unknown ship requests are negative tests\nwhose expected non-2xx status codes are asserted as passing tests.\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Reference Data",
+      "description": "Run first. Confirms the seeded ships and users are visible.",
+      "item": [
+        {
+          "name": "List active ships",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships?includeInactive=false",
+              "query": [
+                {
+                  "key": "includeInactive",
+                  "value": "false",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships"
+              ]
+            },
+            "description": "Expected to include SHIP01, SHIP02, SHIP03 and SHIP05; SHIP04 is inactive."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(rows).to.be.an(\"array\"));",
+                  "pm.test(\"SHIP01 exists\", () => pm.expect(rows.some(x => x.shipCode === \"SHIP01\")).to.be.true);",
+                  "pm.test(\"Inactive SHIP04 is excluded\", () => pm.expect(rows.some(x => x.shipCode === \"SHIP04\")).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List all ships (including inactive)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships?includeInactive=true",
+              "query": [
+                {
+                  "key": "includeInactive",
+                  "value": "true",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test(\"SHIP04 is included when requested\", () => pm.expect(rows.some(x => x.shipCode === \"SHIP04\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List active users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users?includeInactive=false",
+              "query": [
+                {
+                  "key": "includeInactive",
+                  "value": "false",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Expected to include seeded accounts such as admin and ops.manager."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(rows).to.be.an(\"array\"));",
+                  "pm.test(\"Seeded admin user exists\", () => pm.expect(rows.some(x => x.username === \"admin\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Users and Ships",
+      "description": "Creates a unique Postman user and ship, then stores their IDs for subsequent requests. Run in order.",
+      "item": [
+        {
+          "name": "Create Postman test user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Creates a uniquely named user for this collection run. The response saves userId to {{createdUserId}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{createdUsername}}\",\n  \"fullName\": \"Postman Test User\",\n  \"email\": \"postman.{{runSuffix}}@example.test\",\n  \"role\": \"Manager\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const suffix = Date.now().toString();",
+                  "pm.collectionVariables.set(\"runSuffix\", suffix);",
+                  "pm.collectionVariables.set(\"createdUsername\", \"pm.user.\" + suffix);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201 Created\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "const id = body.userId ?? body.UserId;",
+                  "pm.test(\"Response contains userId\", () => pm.expect(id).to.exist);",
+                  "pm.collectionVariables.set(\"createdUserId\", String(id));",
+                  "pm.test(\"Response contains the generated username\", () =>",
+                  "    pm.expect(body.username ?? body.Username).to.eql(pm.collectionVariables.get(\"createdUsername\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get users (verify created user)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users?includeInactive=false",
+              "query": [
+                {
+                  "key": "includeInactive",
+                  "value": "false",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "const id = Number(pm.collectionVariables.get(\"createdUserId\"));",
+                  "pm.test(\"New user appears in list\", () =>",
+                  "    pm.expect(rows.some(x => x.userId === id)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Postman test ship",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships"
+              ]
+            },
+            "description": "Creates a unique test ship using an April-March fiscal year. Saves shipId and shipCode.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shipCode\": \"{{createdShipCode}}\",\n  \"shipName\": \"Postman Test Vessel\",\n  \"fiscalYearStartMonth\": 4,\n  \"fiscalYearEndMonth\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const suffix = pm.collectionVariables.get(\"runSuffix\") || Date.now().toString();",
+                  "pm.collectionVariables.set(\"runSuffix\", suffix);",
+                  "pm.collectionVariables.set(\"createdShipCode\", \"PM\" + suffix.slice(-10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201 Created\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "const id = body.shipId ?? body.ShipId;",
+                  "pm.test(\"Response contains shipId\", () => pm.expect(id).to.exist);",
+                  "pm.collectionVariables.set(\"createdShipId\", String(id));",
+                  "pm.test(\"Fiscal year is April-March\", () => {",
+                  "    pm.expect(body.fiscalYearStartMonth ?? body.FiscalYearStartMonth).to.eql(4);",
+                  "    pm.expect(body.fiscalYearEndMonth ?? body.FiscalYearEndMonth).to.eql(3);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get ships (verify created ship)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships?includeInactive=true",
+              "query": [
+                {
+                  "key": "includeInactive",
+                  "value": "true",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "const code = pm.collectionVariables.get(\"createdShipCode\");",
+                  "pm.test(\"New ship appears in list\", () => pm.expect(rows.some(x => x.shipCode === code)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create duplicate user (expected conflict)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Negative test. Run after Create Postman test user. Expected HTTP 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{createdUsername}}\",\n  \"fullName\": \"Duplicate Test User\",\n  \"email\": \"duplicate@example.test\",\n  \"role\": \"Manager\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Duplicate username returns HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Response uses ProblemDetails\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create duplicate ship (expected conflict)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships"
+              ]
+            },
+            "description": "Negative test. Run after Create Postman test ship. Expected HTTP 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shipCode\": \"{{createdShipCode}}\",\n  \"shipName\": \"Duplicate Test Vessel\",\n  \"fiscalYearStartMonth\": 4,\n  \"fiscalYearEndMonth\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Duplicate ship code returns HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Response uses ProblemDetails\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - User Ship Assignments",
+      "description": "Uses IDs saved by the create requests in folder 01. Run after creating the user and ship.",
+      "item": [
+        {
+          "name": "Assign created ship to created user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{createdUserId}}/ships",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{createdUserId}}",
+                "ships"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shipId\": \"{{createdShipId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Assignment returns HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get ships assigned to created user",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{createdUserId}}/ships?includeInactive=false",
+              "query": [
+                {
+                  "key": "includeInactive",
+                  "value": "false",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{createdUserId}}",
+                "ships"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "const shipId = Number(pm.collectionVariables.get(\"createdShipId\"));",
+                  "pm.test(\"Assigned ship is returned\", () => pm.expect(rows.some(x => x.shipId === shipId)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repeat assignment (idempotency check)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{createdUserId}}/ships",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{createdUserId}}",
+                "ships"
+              ]
+            },
+            "description": "Stored procedure is designed to be idempotent; repeating an assignment should not create a duplicate.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shipId\": \"{{createdShipId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Repeated assignment remains successful\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Crew",
+      "description": "Crew endpoints use seeded active ship SHIP01. Seeded CREW001 and CREW004 are useful search cases.",
+      "item": [
+        {
+          "name": "Get crew - default page",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/crew?pageNumber=1&pageSize=20&sortColumn=RankName&sortDirection=ASC",
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "sortColumn",
+                  "value": "RankName",
+                  "disabled": false
+                },
+                {
+                  "key": "sortDirection",
+                  "value": "ASC",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "crew"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Response contains paged fields\", () => {",
+                  "    pm.expect(body).to.have.property(\"items\").that.is.an(\"array\");",
+                  "    pm.expect(body).to.have.property(\"pageNumber\");",
+                  "    pm.expect(body).to.have.property(\"pageSize\");",
+                  "    pm.expect(body).to.have.property(\"totalCount\");",
+                  "});",
+                  "pm.test(\"Crew records have required display fields\", () => {",
+                  "    if (body.items.length) {",
+                  "        pm.expect(body.items[0]).to.have.property(\"crewMemberId\");",
+                  "        pm.expect(body.items[0]).to.have.property(\"rankName\");",
+                  "        pm.expect(body.items[0]).to.have.property(\"status\");",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get crew - pagination page 1",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/crew?pageNumber=1&pageSize=5&sortColumn=SignOnDate&sortDirection=ASC",
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "5",
+                  "disabled": false
+                },
+                {
+                  "key": "sortColumn",
+                  "value": "SignOnDate",
+                  "disabled": false
+                },
+                {
+                  "key": "sortDirection",
+                  "value": "ASC",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "crew"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Page 1 contains at most 5 rows\", () => pm.expect(body.items.length).to.be.at.most(5));",
+                  "pm.collectionVariables.set(\"crewPage1Ids\", JSON.stringify(body.items.map(x => x.crewMemberId)));",
+                  "pm.collectionVariables.set(\"crewTotalCount\", String(body.totalCount));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get crew - pagination page 2",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/crew?pageNumber=2&pageSize=5&sortColumn=SignOnDate&sortDirection=ASC",
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "2",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "5",
+                  "disabled": false
+                },
+                {
+                  "key": "sortColumn",
+                  "value": "SignOnDate",
+                  "disabled": false
+                },
+                {
+                  "key": "sortDirection",
+                  "value": "ASC",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "crew"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const firstPage = JSON.parse(pm.collectionVariables.get(\"crewPage1Ids\") || \"[]\");",
+                  "const secondPage = body.items.map(x => x.crewMemberId);",
+                  "pm.test(\"Page 2 contains at most 5 rows\", () => pm.expect(secondPage.length).to.be.at.most(5));",
+                  "pm.test(\"Page 1 and page 2 do not overlap\", () =>",
+                  "    pm.expect(secondPage.filter(id => firstPage.includes(id))).to.have.length(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search crew by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/crew?pageNumber=1&pageSize=20&sortColumn=CrewMemberId&sortDirection=ASC&searchTerm=CREW001",
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "sortColumn",
+                  "value": "CrewMemberId",
+                  "disabled": false
+                },
+                {
+                  "key": "sortDirection",
+                  "value": "ASC",
+                  "disabled": false
+                },
+                {
+                  "key": "searchTerm",
+                  "value": "CREW001",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "crew"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Search returns CREW001\", () =>",
+                  "    pm.expect(body.items.some(x => x.crewMemberId === \"CREW001\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search crew by partial date (05 Apr)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/crew?pageNumber=1&pageSize=20&sortColumn=SignOnDate&sortDirection=ASC&searchTerm=05%20Apr",
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "sortColumn",
+                  "value": "SignOnDate",
+                  "disabled": false
+                },
+                {
+                  "key": "sortDirection",
+                  "value": "ASC",
+                  "disabled": false
+                },
+                {
+                  "key": "searchTerm",
+                  "value": "05 Apr",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "crew"
+              ]
+            },
+            "description": "Tests the challenge's partial-date search requirement. Seeded CREW004 signed on 05-Apr-2026."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Partial date search returns CREW004\", () =>",
+                  "    pm.expect(body.items.some(x => x.crewMemberId === \"CREW004\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid crew sort column (expected 400)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/crew?pageNumber=1&pageSize=10&sortColumn=ShipName&sortDirection=ASC",
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "disabled": false
+                },
+                {
+                  "key": "sortColumn",
+                  "value": "ShipName",
+                  "disabled": false
+                },
+                {
+                  "key": "sortDirection",
+                  "value": "ASC",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "crew"
+              ]
+            },
+            "description": "Negative test: ShipName is not in the allowed crew sort columns."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Invalid sort column returns HTTP 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid crew page size (expected 400)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/crew?pageNumber=1&pageSize=501&sortColumn=RankName&sortDirection=ASC",
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "501",
+                  "disabled": false
+                },
+                {
+                  "key": "sortColumn",
+                  "value": "RankName",
+                  "disabled": false
+                },
+                {
+                  "key": "sortDirection",
+                  "value": "ASC",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "crew"
+              ]
+            },
+            "description": "Negative test: stored procedure maximum page size is 500."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Page size above 500 returns HTTP 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Inactive ship crew (expected 404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/SHIP04/crew?pageNumber=1&pageSize=10",
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "SHIP04",
+                "crew"
+              ]
+            },
+            "description": "SHIP04 is seeded as inactive; crew operational query should reject it."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Inactive ship returns HTTP 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Financial Reports",
+      "description": "Runs detailed and summary reports for both Jan-Dec (SHIP01) and Apr-Mar (SHIP02) fiscal years.",
+      "item": [
+        {
+          "name": "Financial detail - SHIP01 - Jan 2025",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/financial-reports/detail?period={{reportPeriod}}",
+              "query": [
+                {
+                  "key": "period",
+                  "value": "{{reportPeriod}}",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "financial-reports",
+                "detail"
+              ]
+            },
+            "description": "SHIP01 uses Jan-Dec. Posting account 7135000 has Jan 2025 actual 1,000 and budget 1,000."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(rows).to.be.an(\"array\"));",
+                  "const account = rows.find(x => x.accountNumber === \"7135000\");",
+                  "pm.test(\"Account 7135000 is included\", () => pm.expect(account).to.exist);",
+                  "if (account) {",
+                  "    pm.test(\"7135000 monthly actual is 1000\", () => pm.expect(Number(account.actualValue)).to.eql(1000));",
+                  "    pm.test(\"7135000 monthly budget is 1000\", () => pm.expect(Number(account.budgetValue)).to.eql(1000));",
+                  "    pm.test(\"7135000 monthly variance is 0\", () => pm.expect(Number(account.variance)).to.eql(0));",
+                  "    pm.test(\"YTD values are populated\", () => {",
+                  "        pm.expect(account.actualYTD).to.not.equal(undefined);",
+                  "        pm.expect(account.budgetYTD).to.not.equal(undefined);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Financial summary - SHIP01 - Jan 2025",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/financial-reports/summary?period={{reportPeriod}}",
+              "query": [
+                {
+                  "key": "period",
+                  "value": "{{reportPeriod}}",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "financial-reports",
+                "summary"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test(\"Summary is an array\", () => pm.expect(rows).to.be.an(\"array\"));",
+                  "pm.test(\"Top-level COA 7000000 is included\", () =>",
+                  "    pm.expect(rows.some(x => x.accountNumber === \"7000000\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Financial detail - SHIP02 - Jan 2025 (Apr-Mar FY)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{fiscalShipCode}}/financial-reports/detail?period={{reportPeriod}}",
+              "query": [
+                {
+                  "key": "period",
+                  "value": "{{reportPeriod}}",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{fiscalShipCode}}",
+                "financial-reports",
+                "detail"
+              ]
+            },
+            "description": "SHIP02 fiscal year starts April. YTD should begin 2024-04-01 for a Jan-2025 report."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(rows).to.be.an(\"array\"));",
+                  "pm.test(\"Contains account rows\", () => pm.expect(rows.length).to.be.greaterThan(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Financial summary - SHIP02 - Jan 2025 (Apr-Mar FY)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{fiscalShipCode}}/financial-reports/summary?period={{reportPeriod}}",
+              "query": [
+                {
+                  "key": "period",
+                  "value": "{{reportPeriod}}",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{fiscalShipCode}}",
+                "financial-reports",
+                "summary"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test(\"Summary is an array\", () => pm.expect(rows).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid reporting period (expected 400)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/{{activeShipCode}}/financial-reports/detail?period=2025-13",
+              "query": [
+                {
+                  "key": "period",
+                  "value": "2025-13",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "{{activeShipCode}}",
+                "financial-reports",
+                "detail"
+              ]
+            },
+            "description": "Negative test: month 13 is not a valid yyyy-MM accounting period."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Invalid period returns HTTP 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown ship financial report (expected 404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ships/SHIP99/financial-reports/detail?period=2025-01",
+              "query": [
+                {
+                  "key": "period",
+                  "value": "2025-01",
+                  "disabled": false
+                }
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ships",
+                "SHIP99",
+                "financial-reports",
+                "detail"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Unknown ship returns HTTP 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5204",
+      "type": "string"
+    },
+    {
+      "key": "activeShipCode",
+      "value": "SHIP01",
+      "type": "string"
+    },
+    {
+      "key": "fiscalShipCode",
+      "value": "SHIP02",
+      "type": "string"
+    },
+    {
+      "key": "reportPeriod",
+      "value": "2025-01",
+      "type": "string"
+    },
+    {
+      "key": "runSuffix",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdUsername",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdShipCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdShipId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "crewPage1Ids",
+      "value": "[]",
+      "type": "string"
+    },
+    {
+      "key": "crewTotalCount",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
