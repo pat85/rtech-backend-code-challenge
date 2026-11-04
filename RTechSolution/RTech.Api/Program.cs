@@ -1,34 +1,38 @@
+using RTech.Api.Business;
+using RTech.Api.DataAccess;
+using RTech.Api.DataAccess.Repositories;
+using RTech.Api.Domain.Interfaces;
+using RTech.Api.Middleware;
 
-namespace RTech.Api
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
+
+// The factory is stateless; repositories and services are scoped per request.
+builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
+
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IShipRepository, ShipRepository>();
+builder.Services.AddScoped<ICrewRepository, CrewRepository>();
+builder.Services.AddScoped<IFinancialReportRepository, FinancialReportRepository>();
+
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IShipService, ShipService>();
+builder.Services.AddScoped<ICrewService, CrewService>();
+builder.Services.AddScoped<IFinancialReportService, FinancialReportService>();
+
+var app = builder.Build();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+if (app.Environment.IsDevelopment())
 {
-    public class Program
-    {
-        public static void Main(string[] args)
-        {
-            var builder = WebApplication.CreateBuilder(args);
-
-            // Add services to the container.
-
-            builder.Services.AddControllers();
-            // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-            builder.Services.AddOpenApi();
-
-            var app = builder.Build();
-
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.MapOpenApi();
-            }
-
-            app.UseHttpsRedirection();
-
-            app.UseAuthorization();
-
-
-            app.MapControllers();
-
-            app.Run();
-        }
-    }
+    app.MapOpenApi();
 }
+
+app.UseHttpsRedirection();
+app.MapControllers();
+app.Run();
+
+// Exposes the entry point to WebApplicationFactory in future API integration tests.
+public partial class Program { }

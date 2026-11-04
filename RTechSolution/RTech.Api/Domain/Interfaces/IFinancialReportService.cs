@@ -1,6 +1,11 @@
-﻿namespace RTech.Api.Domain.Interfaces
+using RTech.Api.Domain.Entities;
+
+namespace RTech.Api.Domain.Interfaces;
+
+public interface IFinancialReportService
 {
-    public class IFinancialReportService
-    {
-    }
+    Task<IReadOnlyList<FinancialReport>> GetDetailAsync(
+        string shipCode, DateOnly period, CancellationToken cancellationToken);
+    Task<IReadOnlyList<FinancialReport>> GetSummaryAsync(
+        string shipCode, DateOnly period, CancellationToken cancellationToken);
 }

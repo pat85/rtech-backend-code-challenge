@@ -1,6 +1,9 @@
-﻿namespace RTech.Api.Domain.Requests
+using System.ComponentModel.DataAnnotations;
+
+namespace RTech.Api.Domain.Requests;
+
+public sealed class AssignShipRequest
 {
-    public class AssignShipRequest
-    {
-    }
+    [Range(1, int.MaxValue)]
+    public int ShipId { get; init; }
 }

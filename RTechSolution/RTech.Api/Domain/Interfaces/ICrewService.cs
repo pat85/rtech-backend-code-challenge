@@ -1,6 +1,10 @@
-﻿namespace RTech.Api.Domain.Interfaces
+using RTech.Api.Domain.Entities;
+using RTech.Api.Domain.Requests;
+
+namespace RTech.Api.Domain.Interfaces;
+
+public interface ICrewService
 {
-    public class ICrewService
-    {
-    }
+    Task<IReadOnlyList<CrewMember>> GetCrewListAsync(
+        string shipCode, CrewSearchRequest request, CancellationToken cancellationToken);
 }

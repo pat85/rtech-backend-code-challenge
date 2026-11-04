@@ -1,6 +1,52 @@
-@RTech.Api_HostAddress = http://localhost:5204
+@baseUrl = https://localhost:7001
 
-GET {{RTech.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### List active ships
+GET {{baseUrl}}/api/ships
 
-###
+### List all ships, including inactive
+GET {{baseUrl}}/api/ships?includeInactive=true
+
+### Create ship with April-March fiscal year
+POST {{baseUrl}}/api/ships
+Content-Type: application/json
+
+{
+  "shipCode": "SHIP06",
+  "shipName": "Black Pearl",
+  "fiscalYearStartMonth": 4,
+  "fiscalYearEndMonth": 3
+}
+
+### List users
+GET {{baseUrl}}/api/users
+
+### Create user
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "username": "john.doe",
+  "fullName": "John Doe",
+  "email": "john@example.com",
+  "role": "Manager"
+}
+
+### Assign ship 2 to user 1
+POST {{baseUrl}}/api/users/1/ships
+Content-Type: application/json
+
+{
+  "shipId": 2
+}
+
+### Get crew page 1
+GET {{baseUrl}}/api/ships/SHIP01/crew?pageNumber=1&pageSize=20&sortColumn=RankName&sortDirection=ASC
+
+### Search crew by partial date
+GET {{baseUrl}}/api/ships/SHIP01/crew?searchTerm=05%20Apr
+
+### Financial report detail
+GET {{baseUrl}}/api/ships/SHIP01/financial-reports/detail?period=2025-01
+
+### Financial report summary
+GET {{baseUrl}}/api/ships/SHIP01/financial-reports/summary?period=2025-01
