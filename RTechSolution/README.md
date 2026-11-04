@@ -14,7 +14,7 @@ Install the following:
 - **SQL Server Management Studio (SSMS)** or Azure Data Studio – to create and populate the database.
 - **Visual Studio 2026** or another .NET 10-compatible IDE (optional). The project can also be built and run from PowerShell.
 
-Before starting the API, create the database and execute the SQL object and seed scripts using the separate guides.
+Before starting the API, create the database and execute the SQL object and seed scripts using the separate guides (See Related Guides below).
 
 ## 1. Clone the repository
 
